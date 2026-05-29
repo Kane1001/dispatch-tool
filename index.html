@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>報單時間確認</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Noto+Sans+TC:wght@300;400;500;700&display=swap');
+
+  :root {
+    --bg: #0f0f0f;
+    --surface: #1a1a1a;
+    --border: #2a2a2a;
+    --accent: #e8c84a;
+    --accent-dim: rgba(232,200,74,0.12);
+    --text: #f0f0f0;
+    --muted: #666;
+    --green: #4ae88a;
+    --red: #e84a4a;
+    --blue: #4ab4e8;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans TC', sans-serif;
+    min-height: 100vh;
+    padding: 24px;
+    padding-bottom: 48px;
+  }
+
+  .container { width: 100%; max-width: 560px; margin: 0 auto; }
+
+  .header {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    margin-bottom: 32px;
+  }
+
+  .header h1 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2.4rem;
+    letter-spacing: 0.08em;
+    color: var(--accent);
+    line-height: 1;
+  }
+
+  .header span {
+    font-size: 0.75rem;
+    color: var(--muted);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin-bottom: 16px;
+  }
+
+  .card-label {
+    font-size: 0.65rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 10px;
+  }
+
+  /* GPS 定位區塊 */
+  .gps-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+
+  .gps-info {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    min-height: 48px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .gps-address {
+    font-size: 0.85rem;
+    color: var(--text);
+    line-height: 1.4;
+  }
+
+  .gps-coords {
+    font-size: 0.65rem;
+    color: var(--muted);
+    font-family: 'Courier New', monospace;
+    letter-spacing: 0.04em;
+  }
+
+  .gps-placeholder {
+    font-size: 0.8rem;
+    color: var(--muted);
+    align-self: center;
+  }
+
+  .gps-btn {
+    background: rgba(74,180,232,0.12);
+    border: 1px solid var(--blue);
+    border-radius: 8px;
+    color: var(--blue);
+    cursor: pointer;
+    font-family: 'Noto Sans TC', sans-serif;
+    font-size: 0.75rem;
+    letter-spacing: 0.06em;
+    padding: 10px 14px;
+    white-space: nowrap;
+    transition: background 0.2s;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .gps-btn:hover { background: rgba(74,180,232,0.22); }
+  .gps-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .gps-btn svg {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+  }
+
+  .gps-btn.locating svg {
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* 客人地址 */
+  .location-row {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+  }
+
+  textarea {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: 'Noto Sans TC', sans-serif;
+    font-size: 0.9rem;
+    padding: 12px 14px;
+    resize: none;
+    outline: none;
+    transition: border-color 0.2s;
+    line-height: 1.5;
+    min-height: 72px;
+  }
+
+  textarea:focus { border-color: var(--accent); }
+
+  .clear-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--muted);
+    cursor: pointer;
+    font-family: 'Noto Sans TC', sans-serif;
+    font-size: 0.75rem;
+    letter-spacing: 0.1em;
+    padding: 8px 14px;
+    white-space: nowrap;
+    transition: all 0.2s;
+    flex-shrink: 0;
+    align-self: flex-start;
+    margin-top: 2px;
+  }
+
+  .clear-btn:hover { border-color: var(--red); color: var(--red); }
+
+  .dest-parsed {
+    font-size: 0.75rem;
+    color: var(--accent);
+    margin-top: 6px;
+    min-height: 18px;
+  }
+
+  .calc-btn {
+    width: 100%;
+    background: var(--accent);
+    border: none;
+    border-radius: 8px;
+    color: #0f0f0f;
+    cursor: pointer;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.1rem;
+    letter-spacing: 0.12em;
+    padding: 14px;
+    margin-top: 10px;
+    transition: opacity 0.2s;
+  }
+
+  .calc-btn:hover { opacity: 0.88; }
+  .calc-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .result-box {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 18px;
+    margin-top: 10px;
+    min-height: 72px;
+    height: 72px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    overflow: hidden;
+  }
+
+  .result-item {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .result-item .val {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2.4rem;
+    letter-spacing: 0.04em;
+    color: var(--green);
+    line-height: 1;
+  }
+
+  .result-item .unit {
+    font-size: 0.65rem;
+    color: var(--muted);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .result-sep {
+    width: 1px;
+    height: 40px;
+    background: var(--border);
+  }
+
+  .result-placeholder, .loading {
+    color: var(--muted);
+    font-size: 0.8rem;
+  }
+
+  .report-card { display: none; }
+
+  .report-box {
+    background: var(--accent-dim);
+    border: 1px solid rgba(232,200,74,0.3);
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin-top: 4px;
+    font-size: 0.95rem;
+    letter-spacing: 0.04em;
+    color: var(--accent);
+    font-weight: 500;
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    transition: background 0.2s;
+    white-space: pre-line;
+    user-select: all;
+  }
+
+  .report-box:hover { background: rgba(232,200,74,0.2); }
+
+  .copy-hint {
+    font-size: 0.65rem;
+    color: var(--muted);
+    margin-top: 6px;
+    letter-spacing: 0.1em;
+  }
+
+  .tag {
+    display: inline-block;
+    background: rgba(74,232,138,0.1);
+    border: 1px solid rgba(74,232,138,0.25);
+    border-radius: 4px;
+    color: var(--green);
+    font-size: 0.65rem;
+    letter-spacing: 0.1em;
+    padding: 2px 8px;
+    margin-left: 8px;
+    vertical-align: middle;
+  }
+
+  .error-msg {
+    color: var(--red);
+    font-size: 0.8rem;
+    margin-top: 8px;
+  }
+
+  .status-dot {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    margin-right: 6px;
+    background: var(--muted);
+    vertical-align: middle;
+  }
+  .status-dot.ok { background: var(--green); }
+  .status-dot.err { background: var(--red); }
+
+  .gps-status {
+    font-size: 0.7rem;
+    color: var(--muted);
+    margin-top: 8px;
+    display: none;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="header">
+    <h1>報單確認</h1>
+    <span>8392 白Tesla 3</span>
+  </div>
+
+  <!-- 我的位置 GPS -->
+  <div class="card">
+    <div class="card-label">我的位置</div>
+    <div class="gps-row">
+      <div class="gps-info" id="gps-info">
+        <span class="gps-placeholder">尚未定位</span>
+      </div>
+      <button class="gps-btn" id="gps-btn" onclick="locateMe()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="gps-icon">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>
+          <circle cx="12" cy="12" r="8" opacity="0.3"/>
+        </svg>
+        更新位置
+      </button>
+    </div>
+    <div class="gps-status" id="gps-status"></div>
+  </div>
+
+  <!-- API Key 設定 -->
+  <div class="card" id="apikey-card">
+    <div class="card-label">Google Maps API Key</div>
+    <div class="location-row">
+      <input type="password" id="api-key-input" placeholder="貼上你的 API Key">
+      <button class="save-btn" onclick="saveApiKey()">儲存</button>
+    </div>
+    <div id="apikey-status" style="font-size:0.7rem;margin-top:6px;display:none;"></div>
+  </div>
+
+  <!-- 客人地址 -->
+  <div class="card">
+    <div class="card-label">客人地址（貼上單號行）</div>
+    <div class="location-row">
+      <textarea id="dest-raw" placeholder="點此自動貼上…" onclick="pasteFromClipboard()" readonly></textarea>
+      <button class="clear-btn" onclick="clearDest()">清除</button>
+    </div>
+    <div class="dest-parsed" id="dest-parsed"></div>
+
+    <button class="calc-btn" id="calc-btn" onclick="calculate()">計算時間</button>
+    <div id="error-msg" class="error-msg" style="display:none;"></div>
+
+    <div class="result-box" id="result-box">
+      <span class="result-placeholder">定位後貼上地址再計算</span>
+    </div>
+  </div>
+
+  <!-- 報單 -->
+  <div class="card report-card" id="report-card">
+    <div class="card-label">回報調度 <span class="tag">點擊複製</span></div>
+    <div class="report-box" id="report-text" onclick="copyReport()"></div>
+    <div class="copy-hint">點擊即可全選複製</div>
+  </div>
+
+</div>
+
+<script>
+  // API Key
+  let gmapsKey = localStorage.getItem('gmaps_key') || '';
+  if (gmapsKey) {
+    document.addEventListener('DOMContentLoaded', () => {
+      const inp = document.getElementById('api-key-input');
+      if (inp) inp.value = gmapsKey;
+      showApiKeyStatus('✓ 已儲存', 'var(--green)');
+      // 已有 Key，預載 SDK
+      loadGoogleMapsSDK().catch(() => {});
+    });
+  }
+
+  function saveApiKey() {
+    const val = document.getElementById('api-key-input').value.trim();
+    if (!val) return;
+    gmapsKey = val;
+    localStorage.setItem('gmaps_key', val);
+    showApiKeyStatus('✓ 已儲存', 'var(--green)');
+    // 儲存後立即預載 SDK
+    loadGoogleMapsSDK().catch(() => {});
+  }
+
+  function showApiKeyStatus(msg, color) {
+    const el = document.getElementById('apikey-status');
+    if (!el) return;
+    el.textContent = msg;
+    el.style.color = color;
+    el.style.display = 'block';
+  }
+
+  // 儲存的座標
+  let originCoords = null;
+
+  // 嘗試載入上次座標（備用）
+  const saved = localStorage.getItem('driver_coords');
+  if (saved) {
+    try {
+      originCoords = JSON.parse(saved);
+      showGpsInfo(originCoords, localStorage.getItem('driver_address') || '', true);
+    } catch(e) {}
+  }
+
+  // ── GPS 定位 ──────────────────────────────────────────
+  function locateMe() {
+    if (!navigator.geolocation) {
+      showGpsStatus('此瀏覽器不支援 GPS 定位', 'err');
+      return;
+    }
+
+    const btn = document.getElementById('gps-btn');
+    const icon = document.getElementById('gps-icon');
+    btn.disabled = true;
+    icon.innerHTML = '<path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>';
+    btn.classList.add('locating');
+
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const { latitude: lat, longitude: lon, accuracy } = pos.coords;
+        originCoords = { lat, lon };
+        localStorage.setItem('driver_coords', JSON.stringify(originCoords));
+
+        // 先顯示座標，立即解鎖按鈕
+        showGpsInfo({ lat, lon }, '地址解析中...', false);
+        showGpsStatus(`精度 ±${Math.round(accuracy)} 公尺`, 'ok');
+        btn.disabled = false;
+        btn.classList.remove('locating');
+        icon.innerHTML = '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="8" opacity="0.3"/>';
+
+        // 地址在背景解析，不擋按鈕
+        loadGoogleMapsSDK().then(() => reverseGeocode(lat, lon)).then(addr => {
+          localStorage.setItem('driver_address', addr);
+          showGpsInfo({ lat, lon }, addr, false);
+        }).catch(() => {
+          showGpsInfo({ lat, lon }, '（無法取得地址名稱）', false);
+        });
+      },
+      (err) => {
+        let msg = '定位失敗';
+        if (err.code === 1) msg = '請允許瀏覽器存取位置';
+        else if (err.code === 2) msg = '無法取得位置資訊';
+        else if (err.code === 3) msg = '定位逾時，請重試';
+        showGpsStatus(msg, 'err');
+        btn.disabled = false;
+        btn.classList.remove('locating');
+        icon.innerHTML = '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="8" opacity="0.3"/>';
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+    );
+  }
+
+  async function reverseGeocode(lat, lon) {
+    if (!gmapsKey) throw new Error('no key');
+    return new Promise((resolve, reject) => {
+      // 確保 SDK 已載入
+      if (!window.google || !window.google.maps) { reject(new Error('SDK not ready')); return; }
+      const geocoder = new google.maps.Geocoder();
+      geocoder.geocode({ location: { lat, lng: lon }, language: 'zh-TW' }, (results, status) => {
+        if (status !== 'OK' || !results[0]) { reject(new Error('no result')); return; }
+        // 取最精確的結果，過濾掉太長的全址
+        const addr = results[0].formatted_address
+          .replace('台灣', '').replace('Taiwan', '').replace(/^\d+/, '').trim();
+        resolve(addr);
+      });
+    });
+  }
+
+  function showGpsInfo({ lat, lon }, address, isOld) {
+    const el = document.getElementById('gps-info');
+    el.innerHTML = `
+      <div class="gps-address">${address || '地址解析中...'}</div>
+      <div class="gps-coords">${lat.toFixed(6)}, ${lon.toFixed(6)}${isOld ? '　（上次位置）' : ''}</div>
+    `;
+  }
+
+  function showGpsStatus(msg, type) {
+    const el = document.getElementById('gps-status');
+    el.innerHTML = `<span class="status-dot ${type}"></span>${msg}`;
+    el.style.display = 'block';
+  }
+
+  // ── 地址解析 ──────────────────────────────────────────
+  document.getElementById('dest-raw').addEventListener('input', function() {
+    const raw = this.value.trim();
+    const addr = parseAddress(raw);
+    const p = document.getElementById('dest-parsed');
+    if (addr && addr !== raw) {
+      p.textContent = '→ ' + addr;
+    } else {
+      p.textContent = '';
+    }
+  });
+
+  // 解析單號行，回傳 { address, reserveTime }
+  // reserveTime 格式 "HH:MM" 或 null
+  function parseLine(raw) {
+    if (!raw) return { address: '', reserveTime: null };
+    const line = raw.split('\n')[0].trim();
+    const parts = line.split('/').map(p => p.trim()).filter(p => p);
+
+    const addrPattern = /[區市鄉鎮村里].*[路街道巷弄]|[路街道巷弄].*[0-9０-９]+號/;
+    const timePattern = /^([01]?\d|2[0-3]):([0-5]\d)$/;
+    const pureNumberPattern = /^[0-9０-９]+$/;
+
+    let address = '';
+    let reserveTime = null;
+
+    for (const p of parts) {
+      if (pureNumberPattern.test(p)) continue; // 純數字段落跳過
+      if (addrPattern.test(p) && !address) address = p;
+      if (timePattern.test(p) && !reserveTime) reserveTime = p;
+    }
+
+    // fallback：找第一個非純數字、非時間、非單號的段落（包含地標名稱）
+    if (!address) {
+      for (const p of parts) {
+        if (pureNumberPattern.test(p)) continue;
+        if (timePattern.test(p)) continue;
+        if (/^[^\u4e00-\u9fff]+\d+$/.test(p)) continue; // Q77、A01、♒️17636 這種前綴+數字跳過
+        if (/^[🪙⚠️✅❌💰🔴🟡🟢]+$/.test(p)) continue; // 純符號跳過
+        if (!/[\u4e00-\u9fff a-zA-Z]/.test(p)) continue; // 無中文也無英文跳過（如 ♒️17636）
+        if (p.length < 2) continue;
+        address = p;
+        break;
+      }
+    }
+    return { address, reserveTime };
+  }
+
+  function parseAddress(raw) {
+    return parseLine(raw).address;
+  }
+
+  async function pasteFromClipboard() {
+    try {
+      const text = await navigator.clipboard.readText();
+      const ta = document.getElementById('dest-raw');
+      ta.value = text;
+      // 觸發解析顯示
+      const raw = text.trim();
+      const addr = parseAddress(raw);
+      const p = document.getElementById('dest-parsed');
+      p.textContent = addr && addr !== raw ? '→ ' + addr : '';
+      // 自動計算
+      if (raw) calculate();
+    } catch(e) {
+      const ta = document.getElementById('dest-raw');
+      ta.removeAttribute('readonly');
+      ta.focus();
+    }
+  }
+
+  function clearDest() {
+    document.getElementById('dest-raw').value = '';
+    document.getElementById('dest-parsed').textContent = '';
+    document.getElementById('result-box').innerHTML = '<span class="result-placeholder">定位後貼上地址再計算</span>';
+    document.getElementById('report-card').style.display = 'none';
+    document.getElementById('error-msg').style.display = 'none';
+  }
+
+  // ── 計算路線 ──────────────────────────────────────────
+  async function calculate() {
+    const raw = document.getElementById('dest-raw').value.trim();
+    const errEl = document.getElementById('error-msg');
+    errEl.style.display = 'none';
+
+    if (!originCoords) { showError('請先按「更新位置」取得 GPS 座標'); return; }
+    if (!raw) { showError('請輸入客人地址'); return; }
+
+    const btn = document.getElementById('calc-btn');
+    btn.disabled = true;
+    btn.textContent = '計算中...';
+    document.getElementById('result-box').innerHTML = '<span class="loading">查詢路線中...</span>';
+    document.getElementById('report-card').style.display = 'none';
+
+    try {
+      const { address: dest, reserveTime } = parseLine(raw);
+      if (!dest) { showError('請輸入客人地址'); btn.disabled = false; btn.textContent = '計算時間'; return; }
+      const destObj = await geocode(dest);
+      const routeData = await getRoute(originCoords, destObj);
+      showResult(routeData, raw, reserveTime);
+    } catch(e) {
+      showError('計算失敗：' + e.message);
+      document.getElementById('result-box').innerHTML = '<span class="result-placeholder">計算失敗</span>';
+    }
+
+    btn.disabled = false;
+    btn.textContent = '計算時間';
+  }
+
+
+
+
+  async function geocode(address) {
+    // 有路名門牌 → 加台中市前綴
+    // 純地標名稱 → 加「台中」讓 Google 找到正確位置
+    const hasStreet = /[路街道巷弄]/.test(address);
+    const hasCityPrefix = address.includes('市') || address.includes('縣');
+    let fullAddr;
+    if (hasCityPrefix) {
+      fullAddr = address;
+    } else if (hasStreet) {
+      fullAddr = '台中市' + address;
+    } else {
+      fullAddr = address + ' 台中'; // 地標類型
+    }
+    return { address: fullAddr };
+  }
+
+  // 動態載入 Google Maps JS SDK
+  function loadGoogleMapsSDK() {
+    return new Promise((resolve, reject) => {
+      if (window.google && window.google.maps && window.google.maps.DistanceMatrixService) {
+        resolve(); return;
+      }
+      // 移除舊的 script 標籤（避免重複載入）
+      const old = document.getElementById('gmaps-sdk');
+      if (old) old.remove();
+
+      window.__gmapsResolve = resolve;
+      window.__gmapsReject = reject;
+
+      const script = document.createElement('script');
+      script.id = 'gmaps-sdk';
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${gmapsKey}&callback=__gmapsResolve&loading=async`;
+      script.onerror = () => reject(new Error('Google Maps SDK 載入失敗，請確認 API Key 是否正確'));
+      document.head.appendChild(script);
+    });
+  }
+
+  async function getRoute(origin, dest) {
+    if (!gmapsKey) throw new Error('請先輸入 Google Maps API Key');
+
+    await loadGoogleMapsSDK();
+
+    return new Promise((resolve, reject) => {
+      const service = new google.maps.DistanceMatrixService();
+      service.getDistanceMatrix({
+        origins: [{ lat: origin.lat, lng: origin.lon }],
+        destinations: [dest.address],
+        travelMode: google.maps.TravelMode.DRIVING,
+        drivingOptions: {
+          departureTime: new Date(),
+          trafficModel: google.maps.TrafficModel.BEST_GUESS
+        },
+        language: 'zh-TW',
+      }, (response, status) => {
+        if (status !== 'OK') { reject(new Error('Google API 錯誤：' + status)); return; }
+        const element = response.rows[0].elements[0];
+        if (element.status !== 'OK') { reject(new Error('找不到路線：' + element.status)); return; }
+        const distKm = (element.distance.value / 1000).toFixed(1);
+        const durationSec = element.duration_in_traffic
+          ? element.duration_in_traffic.value
+          : element.duration.value;
+        const hour = new Date().getHours();
+        const isPeak = (hour >= 7 && hour < 9) || (hour >= 17 && hour < 19);
+        const mins = Math.ceil(durationSec / 60) + (isPeak ? 2 : 0);
+        resolve({ distKm, mins });
+      });
+    });
+  }
+
+  function showResult({ distKm, mins }, raw, reserveTime) {
+    document.getElementById('result-box').innerHTML = `
+      <div class="result-item">
+        <div class="val">${mins}</div>
+        <div class="unit">分鐘</div>
+      </div>
+      <div class="result-sep"></div>
+      <div class="result-item">
+        <div class="val">${distKm}</div>
+        <div class="unit">公里</div>
+      </div>
+    `;
+
+    const reportCard = document.getElementById('report-card');
+    const reportText = document.getElementById('report-text');
+    const rawLine = raw.trim(); // 保留完整多行內容
+
+    let reportLine3 = String(mins);
+
+    if (reserveTime) {
+      // 計算現在 + 導航時間 能不能在 reserveTime 前到
+      const now = new Date();
+      const arriveMs = now.getTime() + mins * 60 * 1000;
+      const arrive = new Date(arriveMs);
+
+      const [rh, rm] = reserveTime.split(':').map(Number);
+      const reserve = new Date(now);
+      reserve.setHours(rh, rm, 0, 0);
+      // 若預約時間已過今日（跨午夜情況）
+      if (reserve < now) reserve.setDate(reserve.getDate() + 1);
+
+      if (arrive <= reserve) {
+        reportLine3 = '準';
+      } else {
+        reportLine3 = '來不及';
+      }
+    }
+
+    reportText.textContent = rawLine + '\n8392 白Tesla 3\n' + reportLine3;
+    reportCard.style.display = 'block';
+  }
+
+  function showError(msg) {
+    const el = document.getElementById('error-msg');
+    el.textContent = msg;
+    el.style.display = 'block';
+  }
+
+  function copyReport() {
+    const text = document.getElementById('report-text').textContent;
+    navigator.clipboard.writeText(text).then(() => {
+      const el = document.getElementById('report-text');
+      const orig = el.textContent;
+      el.textContent = '✓ 已複製';
+      setTimeout(() => el.textContent = orig, 1200);
+    });
+  }
+</script>
+</body>
+</html>
