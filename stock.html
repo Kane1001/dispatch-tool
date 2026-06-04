@@ -1,0 +1,1001 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kane 股票監測</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0e1a;
+    --surface: #111827;
+    --surface2: #1a2235;
+    --border: #1e2d45;
+    --text: #e2e8f0;
+    --text-muted: #64748b;
+    --text-dim: #94a3b8;
+    --green: #10b981;
+    --green-dim: rgba(16,185,129,0.15);
+    --yellow: #f59e0b;
+    --yellow-dim: rgba(245,158,11,0.15);
+    --red: #ef4444;
+    --red-dim: rgba(239,68,68,0.15);
+    --blue: #3b82f6;
+    --blue-dim: rgba(59,130,246,0.12);
+    --accent: #06b6d4;
+    --mono: 'DM Mono', monospace;
+    --sans: 'Noto Sans TC', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    padding: 24px 16px 60px;
+  }
+
+  /* Header */
+  .header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    margin-bottom: 32px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .header-title {
+    font-size: 13px;
+    font-family: var(--mono);
+    color: var(--accent);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .header h1 {
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+  .header-time {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-muted);
+    text-align: right;
+  }
+
+  /* Tabs */
+  .tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 28px;
+    background: var(--surface);
+    padding: 4px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    width: fit-content;
+  }
+  .tab {
+    padding: 8px 20px;
+    border-radius: 7px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    transition: all 0.2s;
+    font-family: var(--sans);
+  }
+  .tab.active {
+    background: var(--surface2);
+    color: var(--text);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+  }
+  .tab:hover:not(.active) { color: var(--text-dim); }
+
+  /* Panel */
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  /* Portfolio Grid */
+  .portfolio-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  .section-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-muted);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .refresh-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    background: var(--blue-dim);
+    border: 1px solid rgba(59,130,246,0.3);
+    border-radius: 7px;
+    color: var(--blue);
+    font-size: 12px;
+    font-family: var(--mono);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .refresh-btn:hover { background: rgba(59,130,246,0.2); }
+  .refresh-btn.loading { opacity: 0.6; pointer-events: none; }
+
+  /* Stock Cards */
+  .stock-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 12px;
+  }
+
+  .stock-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+  .stock-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .stock-card:hover { border-color: #2a3f5f; transform: translateY(-1px); }
+  .stock-card:hover::before { opacity: 1; }
+
+  .card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 14px;
+  }
+  .stock-id {
+    font-family: var(--mono);
+    font-size: 18px;
+    font-weight: 500;
+    color: var(--text);
+    letter-spacing: 0.05em;
+  }
+  .stock-name {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 2px;
+  }
+
+  .price-block { text-align: right; }
+  .price {
+    font-family: var(--mono);
+    font-size: 20px;
+    font-weight: 500;
+  }
+  .price-change {
+    font-family: var(--mono);
+    font-size: 12px;
+    margin-top: 2px;
+  }
+  .up { color: var(--green); }
+  .down { color: var(--red); }
+  .neutral { color: var(--text-muted); }
+
+  /* Signal Lights */
+  .signals {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+    margin-bottom: 14px;
+  }
+  .signal {
+    padding: 6px 4px;
+    border-radius: 6px;
+    text-align: center;
+  }
+  .signal-label {
+    font-size: 9px;
+    font-family: var(--mono);
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 4px;
+  }
+  .signal-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    margin: 0 auto;
+  }
+  .sig-green { background: var(--green-dim); }
+  .sig-green .signal-dot { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .sig-yellow { background: var(--yellow-dim); }
+  .sig-yellow .signal-dot { background: var(--yellow); box-shadow: 0 0 6px var(--yellow); }
+  .sig-red { background: var(--red-dim); }
+  .sig-red .signal-dot { background: var(--red); box-shadow: 0 0 6px var(--red); }
+  .sig-gray { background: rgba(100,116,139,0.1); }
+  .sig-gray .signal-dot { background: var(--text-muted); }
+
+  /* Score Bar */
+  .score-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 4px;
+  }
+  .score-bar-wrap {
+    flex: 1;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .score-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.8s ease;
+  }
+  .score-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+  .score-num {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 500;
+    min-width: 32px;
+    text-align: right;
+  }
+
+  /* Loading skeleton */
+  .skeleton {
+    background: linear-gradient(90deg, var(--surface) 25%, var(--surface2) 50%, var(--surface) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+    border-radius: 4px;
+  }
+  @keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+
+  /* Screener Panel */
+  .screener-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 24px;
+  }
+  .screener-box h2 {
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 16px;
+    color: var(--text);
+  }
+  .input-row {
+    display: flex;
+    gap: 10px;
+  }
+  .ticker-input {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 15px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .ticker-input:focus { border-color: var(--accent); }
+  .ticker-input::placeholder { color: var(--text-muted); font-size: 13px; letter-spacing: 0; text-transform: none; }
+  .analyze-btn {
+    padding: 10px 24px;
+    background: var(--accent);
+    border: none;
+    border-radius: 8px;
+    color: #000;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+    font-family: var(--sans);
+    transition: all 0.2s;
+  }
+  .analyze-btn:hover { background: #22d3ee; }
+  .analyze-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* Detail Panel */
+  .detail-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 16px;
+  }
+  .detail-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .detail-ticker {
+    font-family: var(--mono);
+    font-size: 32px;
+    font-weight: 500;
+    letter-spacing: 0.05em;
+  }
+  .detail-company { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
+  .detail-price {
+    font-family: var(--mono);
+    font-size: 28px;
+    font-weight: 500;
+    text-align: right;
+  }
+
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  .metric-item {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+  }
+  .metric-name {
+    font-size: 10px;
+    font-family: var(--mono);
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 6px;
+  }
+  .metric-val {
+    font-family: var(--mono);
+    font-size: 18px;
+    font-weight: 500;
+  }
+  .metric-verdict {
+    font-size: 10px;
+    margin-top: 3px;
+    font-family: var(--mono);
+  }
+
+  /* Buffett Scorecard */
+  .scorecard-title {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+  .criterion-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .criterion-row:last-child { border-bottom: none; }
+  .crit-icon { font-size: 14px; width: 20px; text-align: center; }
+  .crit-name { flex: 1; font-size: 13px; }
+  .crit-val {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-dim);
+    min-width: 80px;
+    text-align: right;
+  }
+  .crit-badge {
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    min-width: 40px;
+    text-align: center;
+  }
+  .badge-pass { background: var(--green-dim); color: var(--green); }
+  .badge-warn { background: var(--yellow-dim); color: var(--yellow); }
+  .badge-fail { background: var(--red-dim); color: var(--red); }
+  .badge-na { background: rgba(100,116,139,0.1); color: var(--text-muted); }
+
+  /* Overall verdict */
+  .verdict-box {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 16px 20px;
+    border-radius: 10px;
+    margin-top: 16px;
+  }
+  .verdict-box.buy { background: var(--green-dim); border: 1px solid rgba(16,185,129,0.3); }
+  .verdict-box.watch { background: var(--yellow-dim); border: 1px solid rgba(245,158,11,0.3); }
+  .verdict-box.avoid { background: var(--red-dim); border: 1px solid rgba(239,68,68,0.3); }
+  .verdict-icon { font-size: 28px; }
+  .verdict-text strong { font-size: 15px; display: block; margin-bottom: 2px; }
+  .verdict-text span { font-size: 12px; color: var(--text-dim); }
+
+  /* Manage Portfolio */
+  .manage-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .manage-input {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 9px 14px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    outline: none;
+  }
+  .manage-input:focus { border-color: var(--accent); }
+  .add-btn {
+    padding: 9px 18px;
+    background: var(--green-dim);
+    border: 1px solid rgba(16,185,129,0.3);
+    border-radius: 8px;
+    color: var(--green);
+    font-size: 13px;
+    cursor: pointer;
+    font-family: var(--sans);
+    font-weight: 500;
+    transition: all 0.2s;
+  }
+  .add-btn:hover { background: rgba(16,185,129,0.25); }
+
+  .holding-list { display: flex; flex-wrap: wrap; gap: 8px; }
+  .holding-tag {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 5px 10px;
+    font-family: var(--mono);
+    font-size: 13px;
+  }
+  .remove-tag {
+    cursor: pointer;
+    color: var(--text-muted);
+    font-size: 15px;
+    line-height: 1;
+    transition: color 0.2s;
+  }
+  .remove-tag:hover { color: var(--red); }
+
+  /* Utility */
+  .error-msg {
+    padding: 12px 16px;
+    background: var(--red-dim);
+    border: 1px solid rgba(239,68,68,0.3);
+    border-radius: 8px;
+    color: var(--red);
+    font-size: 13px;
+    margin-top: 12px;
+    display: none;
+  }
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-muted);
+    font-size: 14px;
+  }
+  .empty-state .icon { font-size: 40px; margin-bottom: 12px; }
+
+  .spinner {
+    display: inline-block;
+    width: 14px; height: 14px;
+    border: 2px solid rgba(59,130,246,0.3);
+    border-top-color: var(--blue);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  @media (max-width: 600px) {
+    .stock-grid { grid-template-columns: 1fr; }
+    .signals { grid-template-columns: repeat(4, 1fr); }
+    .metrics-grid { grid-template-columns: repeat(2, 1fr); }
+    .header h1 { font-size: 22px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <div class="header-title">▸ BUFFETT MONITOR</div>
+    <h1>股票監測儀表板</h1>
+  </div>
+  <div class="header-time" id="clock">—</div>
+</div>
+
+<div class="tabs">
+  <button class="tab active" onclick="switchTab('portfolio')">持倉監測</button>
+  <button class="tab" onclick="switchTab('screener')">個股分析</button>
+  <button class="tab" onclick="switchTab('manage')">管理持股</button>
+</div>
+
+<!-- PORTFOLIO PANEL -->
+<div class="panel active" id="panel-portfolio">
+  <div class="portfolio-header">
+    <span class="section-label">持倉清單 · <span id="holding-count">0</span> 檔</span>
+    <button class="refresh-btn" onclick="refreshAll()" id="refresh-btn">
+      <span id="refresh-icon">↻</span> 全部更新
+    </button>
+  </div>
+  <div class="stock-grid" id="stock-grid">
+    <div class="empty-state">
+      <div class="icon">📋</div>
+      前往「管理持股」新增你的持倉
+    </div>
+  </div>
+</div>
+
+<!-- SCREENER PANEL -->
+<div class="panel" id="panel-screener">
+  <div class="screener-box">
+    <h2>🔍 個股巴菲特評分</h2>
+    <div class="input-row">
+      <input class="ticker-input" id="screener-input" placeholder="輸入股票代碼，例如 AAPL" maxlength="10"
+        onkeydown="if(event.key==='Enter') analyzeStock()">
+      <button class="analyze-btn" onclick="analyzeStock()" id="analyze-btn">分析</button>
+    </div>
+    <div class="error-msg" id="screener-error"></div>
+  </div>
+  <div id="screener-result"></div>
+</div>
+
+<!-- MANAGE PANEL -->
+<div class="panel" id="panel-manage">
+  <div class="screener-box">
+    <h2>📁 管理持股清單</h2>
+    <div class="manage-row">
+      <input class="manage-input" id="add-input" placeholder="股票代碼" maxlength="10"
+        onkeydown="if(event.key==='Enter') addHolding()">
+      <button class="add-btn" onclick="addHolding()">＋ 新增</button>
+    </div>
+    <div class="holding-list" id="holding-list"></div>
+  </div>
+  <div style="padding: 0 4px; font-size: 12px; color: var(--text-muted); line-height: 1.8;">
+    預設持倉已根據你的投資組合設定（TSM、MS、BK、UNM、RGA、BAC、AFL 等）<br>
+    持倉資料儲存於瀏覽器本地，不會上傳任何伺服器。
+  </div>
+</div>
+
+<script>
+const PROXY = 'https://stock-proxy.godancekimo.workers.dev';
+
+// Default holdings based on Kane's portfolio
+const DEFAULT_HOLDINGS = ['TSM','MS','BK','UNM','RGA','BAC','AFL','MU','AMD','NVDA'];
+
+let holdings = JSON.parse(localStorage.getItem('kane_holdings') || 'null') || DEFAULT_HOLDINGS;
+let cachedData = {};
+
+// ── Clock ────────────────────────────────────────────
+function updateClock() {
+  const now = new Date();
+  const options = { timeZone: 'America/New_York', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false };
+  const nyTime = now.toLocaleTimeString('zh-TW', options);
+  const dateStr = now.toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei', month: 'short', day: 'numeric' });
+  document.getElementById('clock').innerHTML = `${dateStr}<br><span style="color:var(--accent);font-size:14px;">${nyTime} EST</span>`;
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ── Tab switching ────────────────────────────────────
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('panel-' + tab).classList.add('active');
+  if (tab === 'manage') renderManage();
+}
+
+// ── Fetch via proxy ──────────────────────────────────
+async function fetchYahoo(url) {
+  const proxyUrl = `${PROXY}?url=${encodeURIComponent(url)}`;
+  const res = await fetch(proxyUrl);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+async function getQuote(symbol) {
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1d`;
+  const data = await fetchYahoo(url);
+  const meta = data?.chart?.result?.[0]?.meta;
+  if (!meta) throw new Error('No data');
+  return {
+    symbol,
+    price: meta.regularMarketPrice,
+    prevClose: meta.previousClose || meta.chartPreviousClose,
+    high52: meta.fiftyTwoWeekHigh,
+    low52: meta.fiftyTwoWeekLow,
+    currency: meta.currency,
+    name: meta.longName || meta.shortName || symbol,
+    marketCap: meta.marketCap,
+  };
+}
+
+async function getFinancials(symbol) {
+  const url = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${symbol}?modules=financialData,defaultKeyStatistics,summaryDetail`;
+  try {
+    const data = await fetchYahoo(url);
+    const fin = data?.quoteSummary?.result?.[0];
+    if (!fin) return null;
+    const fd = fin.financialData || {};
+    const ks = fin.defaultKeyStatistics || {};
+    const sd = fin.summaryDetail || {};
+    return {
+      roe: fd.returnOnEquity?.raw,
+      roa: fd.returnOnAssets?.raw,
+      profitMargin: fd.profitMargins?.raw,
+      debtToEquity: fd.debtToEquity?.raw,
+      currentRatio: fd.currentRatio?.raw,
+      freeCashflow: fd.freeCashflow?.raw,
+      revenueGrowth: fd.revenueGrowth?.raw,
+      earningsGrowth: fd.earningsGrowth?.raw,
+      trailingPE: sd.trailingPE?.raw,
+      forwardPE: sd.forwardPE?.raw,
+      pbRatio: ks.priceToBook?.raw,
+      eps: ks.trailingEps?.raw,
+      dividendYield: sd.dividendYield?.raw,
+      beta: sd.beta?.raw,
+    };
+  } catch { return null; }
+}
+
+// ── Buffett scoring ──────────────────────────────────
+function buffettScore(fin, quote) {
+  if (!fin) return { score: 0, total: 8, criteria: [] };
+  const c = [];
+  let score = 0;
+
+  // 1. ROE > 15%
+  const roe = fin.roe;
+  const roePass = roe != null && roe > 0.15;
+  if (roe != null) score += roePass ? 1 : 0;
+  c.push({ name: 'ROE > 15%', val: roe != null ? fmtPct(roe) : 'N/A', pass: roe != null ? (roePass ? 'pass' : 'fail') : 'na' });
+
+  // 2. Profit margin > 10%
+  const pm = fin.profitMargin;
+  const pmPass = pm != null && pm > 0.10;
+  if (pm != null) score += pmPass ? 1 : 0;
+  c.push({ name: '淨利率 > 10%', val: pm != null ? fmtPct(pm) : 'N/A', pass: pm != null ? (pmPass ? 'pass' : (pm > 0.05 ? 'warn' : 'fail')) : 'na' });
+
+  // 3. Debt/Equity < 1
+  const de = fin.debtToEquity;
+  const dePass = de != null && de < 100; // Yahoo gives as percentage
+  if (de != null) score += dePass ? 1 : 0;
+  c.push({ name: '負債/權益 < 1倍', val: de != null ? (de/100).toFixed(2) + 'x' : 'N/A', pass: de != null ? (de < 100 ? 'pass' : (de < 150 ? 'warn' : 'fail')) : 'na' });
+
+  // 4. Current ratio > 1.5
+  const cr = fin.currentRatio;
+  const crPass = cr != null && cr > 1.5;
+  if (cr != null) score += crPass ? 1 : 0;
+  c.push({ name: '流動比率 > 1.5', val: cr != null ? cr.toFixed(2) : 'N/A', pass: cr != null ? (crPass ? 'pass' : (cr > 1 ? 'warn' : 'fail')) : 'na' });
+
+  // 5. Free cash flow positive
+  const fcf = fin.freeCashflow;
+  const fcfPass = fcf != null && fcf > 0;
+  if (fcf != null) score += fcfPass ? 1 : 0;
+  c.push({ name: '自由現金流為正', val: fcf != null ? fmtLarge(fcf) : 'N/A', pass: fcf != null ? (fcfPass ? 'pass' : 'fail') : 'na' });
+
+  // 6. Revenue growth > 5%
+  const rg = fin.revenueGrowth;
+  const rgPass = rg != null && rg > 0.05;
+  if (rg != null) score += rgPass ? 1 : 0;
+  c.push({ name: '營收成長 > 5%', val: rg != null ? fmtPct(rg) : 'N/A', pass: rg != null ? (rgPass ? 'pass' : (rg > 0 ? 'warn' : 'fail')) : 'na' });
+
+  // 7. P/E reasonable (< 30 for most, higher for growth)
+  const pe = fin.trailingPE;
+  const pePass = pe != null && pe > 0 && pe < 30;
+  if (pe != null && pe > 0) score += pePass ? 1 : (pe < 40 ? 0.5 : 0);
+  c.push({ name: 'P/E 合理 (< 30)', val: pe != null && pe > 0 ? pe.toFixed(1) + 'x' : 'N/A', pass: pe != null && pe > 0 ? (pePass ? 'pass' : (pe < 40 ? 'warn' : 'fail')) : 'na' });
+
+  // 8. P/B < 5
+  const pb = fin.pbRatio;
+  const pbPass = pb != null && pb < 5;
+  if (pb != null) score += pbPass ? 1 : 0;
+  c.push({ name: 'P/B < 5倍', val: pb != null ? pb.toFixed(2) + 'x' : 'N/A', pass: pb != null ? (pbPass ? 'pass' : (pb < 8 ? 'warn' : 'fail')) : 'na' });
+
+  return { score: Math.round(score), total: 8, criteria: c };
+}
+
+function getVerdict(score, total) {
+  const ratio = score / total;
+  if (ratio >= 0.75) return { label: '值得深入研究', icon: '✅', cls: 'buy' };
+  if (ratio >= 0.5)  return { label: '觀察等待', icon: '👁', cls: 'watch' };
+  return { label: '目前不符合標準', icon: '⛔', cls: 'avoid' };
+}
+
+// ── Format helpers ───────────────────────────────────
+function fmtPct(v) { return (v * 100).toFixed(1) + '%'; }
+function fmtLarge(v) {
+  if (v == null) return 'N/A';
+  const abs = Math.abs(v);
+  const sign = v < 0 ? '-' : '';
+  if (abs >= 1e12) return sign + (abs/1e12).toFixed(1) + 'T';
+  if (abs >= 1e9)  return sign + (abs/1e9).toFixed(1) + 'B';
+  if (abs >= 1e6)  return sign + (abs/1e6).toFixed(1) + 'M';
+  return sign + abs.toLocaleString();
+}
+function fmtPrice(v) { return v != null ? '$' + v.toFixed(2) : '—'; }
+function changeColor(chg) { return chg > 0 ? 'up' : chg < 0 ? 'down' : 'neutral'; }
+function changeFmt(chg, pct) {
+  const sign = chg >= 0 ? '+' : '';
+  return `${sign}${chg.toFixed(2)} (${sign}${pct.toFixed(2)}%)`;
+}
+
+// ── Render stock card ────────────────────────────────
+function renderCard(symbol, quote, fin) {
+  const chg = quote ? quote.price - quote.prevClose : 0;
+  const pct = quote ? (chg / quote.prevClose) * 100 : 0;
+  const scoreData = buffettScore(fin, quote);
+
+  const sigDefs = [
+    { key: 'ROE', pass: fin?.roe > 0.15 ? 'green' : fin?.roe > 0.10 ? 'yellow' : fin?.roe != null ? 'red' : 'gray' },
+    { key: 'FCF',  pass: fin?.freeCashflow > 0 ? 'green' : fin?.freeCashflow != null ? 'red' : 'gray' },
+    { key: 'P/E',  pass: fin?.trailingPE < 20 ? 'green' : fin?.trailingPE < 35 ? 'yellow' : fin?.trailingPE != null ? 'red' : 'gray' },
+    { key: 'D/E',  pass: fin?.debtToEquity < 100 ? 'green' : fin?.debtToEquity < 150 ? 'yellow' : fin?.debtToEquity != null ? 'red' : 'gray' },
+  ];
+
+  const scoreColor = scoreData.score >= 6 ? 'var(--green)' : scoreData.score >= 4 ? 'var(--yellow)' : 'var(--red)';
+  const scorePct = (scoreData.score / scoreData.total * 100).toFixed(0);
+
+  return `
+    <div class="stock-card" onclick="quickAnalyze('${symbol}')">
+      <div class="card-top">
+        <div>
+          <div class="stock-id">${symbol}</div>
+          <div class="stock-name">${quote?.name || '—'}</div>
+        </div>
+        <div class="price-block">
+          <div class="price ${changeColor(chg)}">${fmtPrice(quote?.price)}</div>
+          <div class="price-change ${changeColor(chg)}">${quote ? changeFmt(chg, pct) : '—'}</div>
+        </div>
+      </div>
+      <div class="signals">
+        ${sigDefs.map(s => `
+          <div class="signal sig-${s.pass}">
+            <div class="signal-label">${s.key}</div>
+            <div class="signal-dot"></div>
+          </div>
+        `).join('')}
+      </div>
+      <div class="score-row">
+        <span class="score-label">巴菲特評分</span>
+        <div class="score-bar-wrap">
+          <div class="score-bar-fill" style="width:${scorePct}%;background:${scoreColor}"></div>
+        </div>
+        <span class="score-num" style="color:${scoreColor}">${scoreData.score}/${scoreData.total}</span>
+      </div>
+    </div>
+  `;
+}
+
+function renderCardLoading(symbol) {
+  return `
+    <div class="stock-card">
+      <div class="card-top">
+        <div>
+          <div class="stock-id">${symbol}</div>
+          <div class="stock-name skeleton" style="width:80px;height:12px;margin-top:6px"></div>
+        </div>
+        <div class="price-block">
+          <div class="skeleton" style="width:70px;height:22px;margin-left:auto"></div>
+        </div>
+      </div>
+      <div class="signals">
+        ${[1,2,3,4].map(() => `<div class="signal sig-gray"><div class="signal-label skeleton" style="height:9px;width:24px;margin:0 auto 4px"></div><div class="signal-dot"></div></div>`).join('')}
+      </div>
+      <div class="score-row">
+        <span class="score-label">載入中…</span>
+        <div class="score-bar-wrap"><div class="score-bar-fill skeleton" style="width:100%;height:4px"></div></div>
+      </div>
+    </div>
+  `;
+}
+
+// ── Refresh all ──────────────────────────────────────
+async function refreshAll() {
+  if (!holdings.length) return;
+  const btn = document.getElementById('refresh-btn');
+  const icon = document.getElementById('refresh-icon');
+  btn.classList.add('loading');
+  icon.innerHTML = '<span class="spinner"></span>';
+
+  const grid = document.getElementById('stock-grid');
+  grid.innerHTML = holdings.map(s => renderCardLoading(s)).join('');
+
+  await Promise.all(holdings.map(async (symbol) => {
+    try {
+      const [quote, fin] = await Promise.all([getQuote(symbol), getFinancials(symbol)]);
+      cachedData[symbol] = { quote, fin };
+    } catch(e) {
+      cachedData[symbol] = { quote: null, fin: null };
+    }
+  }));
+
+  grid.innerHTML = holdings.map(s => {
+    const d = cachedData[s] || {};
+    return renderCard(s, d.quote, d.fin);
+  }).join('');
+
+  btn.classList.remove('loading');
+  icon.innerHTML = '↻';
+  document.getElementById('holding-count').textContent = holdings.length;
+}
+
+// ── Quick analyze from card click ───────────────────
+function quickAnalyze(symbol) {
+  document.querySelectorAll('.tab')[1].click();
+  document.getElementById('screener-input').value = symbol;
+  analyzeStock(symbol);
+}
+
+// ── Screener ─────────────────────────────────────────
+async function analyzeStock(prefill) {
+  const input = document.getElementById('screener-input');
+  const symbol = (prefill || input.value).trim().toUpperCase();
+  if (!symbol) return;
+  input.value = symbol;
+
+  const btn = document.getElementById('analyze-btn');
+  const errEl = document.getElementById('screener-error');
+  const result = document.getElementById('screener-result');
+
+  btn.disabled = true;
+  btn.textContent = '分析中…';
+  errEl.style.display = 'none';
+  result.innerHTML = `<div class="detail-card"><div style="text-align:center;padding:40px;color:var(--text-muted)"><span class="spinner"></span> 正在抓取 ${symbol} 數據…</div></div>`;
+
+  try {
+    const [quote, fin] = await Promise.all([getQuote(symbol), getFinancials(symbol)]);
+    result.innerHTML = renderDetail(symbol, quote, fin);
+  } catch(e) {
+    errEl.textContent = `無法取得 ${symbol} 的數據，請確認股票代碼是否正確。(${e.message})`;
+    errEl.style.display = 'block';
+    result.innerHTML = '';
+  }
+
+  btn.disabled = false;
+  btn.textContent = '分析';
+}
+
+function renderDetail(symbol, quote, fin) {
+  const chg = quote ? quote.price - quote.prevClose : 0;
+  const pct = quote ? (chg / quote.prevClose) * 100 : 0;
+  const scoreData = buffettScore(fin, quote);
+  const verdict = getVerdict(scoreData.score, scoreData.total);
+  const scoreColor = scoreData.score >= 6 ? 'var(--green)' : scoreData.score >= 4 ? 'var(--yellow)' : 'var(--red)';
+
+  const passIcon = { pass: '✅', warn: '⚠️', fail: '❌', na: '—' };
+
+  const metrics = fin ? [
+    { name: 'ROE', val: fin.roe != null ? fmtPct(fin.roe) : 'N/A', verdict: fin.roe > 0.15 ? '優秀' : fin.roe > 0.10 ? '尚可' : 'N/A', color: fin.roe > 0.15 ? 'var(--green)' : fin.roe > 0.10 ? 'var(--yellow)' : 'var(--text-muted)' },
+    { name: 'ROA', val: fin.roa != null ? fmtPct(fin.roa) : 'N/A', verdict: '', color: 'var(--text-dim)' },
+    { name: '淨利率', val: fin.profitMargin != null ? fmtPct(fin.profitMargin) : 'N/A', verdict: fin.profitMargin > 0.15 ? '優秀' : fin.profitMargin > 0.10 ? '良好' : '', color: fin.profitMargin > 0.10 ? 'var(--green)' : 'var(--text-dim)' },
+    { name: 'P/E', val: fin.trailingPE != null && fin.trailingPE > 0 ? fin.trailingPE.toFixed(1)+'x' : 'N/A', verdict: '', color: 'var(--text-dim)' },
+    { name: 'P/B', val: fin.pbRatio != null ? fin.pbRatio.toFixed(2)+'x' : 'N/A', verdict: '', color: 'var(--text-dim)' },
+    { name: '自由現金流', val: fin.freeCashflow != null ? fmtLarge(fin.freeCashflow) : 'N/A', verdict: fin.freeCashflow > 0 ? '正值' : '負值', color: fin.freeCashflow > 0 ? 'var(--green)' : 'var(--red)' },
+    { name: '營收成長', val: fin.revenueGrowth != null ? fmtPct(fin.revenueGrowth) : 'N/A', verdict: '', color: fin.revenueGrowth > 0.05 ? 'var(--green)' : 'var(--text-dim)' },
+    { name: '股息殖利率', val: fin.dividendYield != null ? fmtPct(fin.dividendYield) : '無配息', verdict: '', color: 'var(--text-dim)' },
+  ] : [];
+
+  return `
+    <div class="detail-card">
+      <div class="detail-header">
+        <div>
+          <div class="detail-ticker">${symbol}</div>
+          <div class="detail-company">${quote?.name || '—'}</div>
+          ${quote?.high52 ? `<div style="font-size:11px;color:var(--text-muted);margin-top:6px;font-family:var(--mono)">52週區間 $${quote.low52?.toFixed(2)} – $${quote.high52?.toFixed(2)}</div>` : ''}
+        </div>
+        <div>
+          <div class="detail-price ${changeColor(chg)}">${fmtPrice(quote?.price)}</div>
+          <div class="price-change ${changeColor(chg)}" style="text-align:right;margin-top:4px">${quote ? changeFmt(chg, pct) : '—'}</div>
+        </div>
+      </div>
+
+      ${metrics.length ? `
+      <div class="metrics-grid">
+        ${metrics.map(m => `
+          <div class="metric-item">
+            <div class="metric-name">${m.name}</div>
+            <div class="metric-val" style="color:${m.color}">${m.val}</div>
+            ${m.verdict ? `<div class="metric-verdict" style="color:${m.color}">${m.verdict}</div>` : ''}
+          </div>
+        `).join('')}
+      </div>` : `<div style="color:var(--text-muted);font-size:13px;padding:12px 0">財務數據無法取得（部分股票如 ETF 可能不提供此數據）</div>`}
+    </div>
+
+    <div class="detail-card">
+      <div class="scorecard-title">巴菲特量化評分標準</div>
+      ${scoreData.criteria.map(c => `
+        <div class="criterion-row">
+          <span class="crit-icon">${passIcon[c.pass] || '—'}</span>
+          <span class="crit-name">${c.name}</span>
+          <span class="crit-val">${c.val}</span>
+          <span class="crit-badge badge-${c.pass}">${c.pass === 'pass' ? 'PASS' : c.pass === 'warn' ? 'WARN' : c.pass === 'fail' ? 'FAIL' : 'N/A'}</span>
+        </div>
+      `).join('')}
+      <div class="verdict-box ${verdict.cls}" style="margin-top:20px">
+        <span class="verdict-icon">${verdict.icon}</span>
+        <div class="verdict-text">
+          <strong style="color:${scoreColor}">${verdict.label}（${scoreData.score}/${scoreData.total} 項通過）</strong>
+          <span>此評分僅供參考，質化護城河判斷仍需人工研究</span>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// ── Manage holdings ──────────────────────────────────
+function renderManage() {
+  document.getElementById('holding-count').textContent = holdings.length;
+  const list = document.getElementById('holding-list');
+  list.innerHTML = holdings.map(s => `
+    <div class="holding-tag">
+      <span>${s}</span>
+      <span class="remove-tag" onclick="removeHolding('${s}')">×</span>
+    </div>
+  `).join('');
+}
+
+function addHolding() {
+  const input = document.getElementById('add-input');
+  const sym = input.value.trim().toUpperCase();
+  if (!sym || holdings.includes(sym)) { input.value = ''; return; }
+  holdings.push(sym);
+  saveHoldings();
+  input.value = '';
+  renderManage();
+}
+
+function removeHolding(sym) {
+  holdings = holdings.filter(s => s !== sym);
+  saveHoldings();
+  renderManage();
+}
+
+function saveHoldings() {
+  localStorage.setItem('kane_holdings', JSON.stringify(holdings));
+  document.getElementById('holding-count').textContent = holdings.length;
+}
+
+// ── Init ─────────────────────────────────────────────
+renderManage();
+refreshAll();
+</script>
+</body>
+</html>
