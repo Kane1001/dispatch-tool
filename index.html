@@ -522,11 +522,37 @@
     }
   });
 
-  // 解析單號行，回傳 { address, reserveTime }
+  // 解析度分秒座標 → 十進位
+  function parseDMS(str) {
+    // 格式：24°09'36.4"N 120°39'38.1"E
+    const m = str.match(/(\d+)°(\d+)'([\d.]+)"([NS])\s*(\d+)°(\d+)'([\d.]+)"([EW])/);
+    if (!m) return null;
+    let lat = parseFloat(m[1]) + parseFloat(m[2])/60 + parseFloat(m[3])/3600;
+    let lon = parseFloat(m[5]) + parseFloat(m[6])/60 + parseFloat(m[7])/3600;
+    if (m[4] === 'S') lat = -lat;
+    if (m[8] === 'W') lon = -lon;
+    return { lat, lon };
+  }
+
+  // 解析單號行，回傳 { address, coords, reserveTime }
   // reserveTime 格式 "HH:MM" 或 null
   function parseLine(raw) {
-    if (!raw) return { address: '', reserveTime: null };
+    if (!raw) return { address: '', coords: null, reserveTime: null };
     const line = raw.split('\n')[0].trim();
+
+    // 優先抓 GPS 座標（度分秒格式）
+    const dmsMatch = line.match(/(\d+°\d+'[\d.]+"[NS]\s*\d+°\d+'[\d.]+"[EW])/);
+    if (dmsMatch) {
+      const coords = parseDMS(dmsMatch[1]);
+      if (coords) return { address: '', coords, reserveTime: null };
+    }
+
+    // 優先抓十進位座標 24.123,120.456
+    const decMatch = line.match(/(\d{2}\.\d+)[,，\s]+(\d{3}\.\d+)/);
+    if (decMatch) {
+      return { address: '', coords: { lat: parseFloat(decMatch[1]), lon: parseFloat(decMatch[2]) }, reserveTime: null };
+    }
+
     const parts = line.split('/').map(p => p.trim()).filter(p => p);
 
     const addrPattern = /[區市鄉鎮村里].*[路街道巷弄]|[路街道巷弄].*[0-9０-９]+號/;
@@ -555,7 +581,7 @@
         break;
       }
     }
-    return { address, reserveTime };
+    return { address, coords: null, reserveTime };
   }
 
   function parseAddress(raw) {
@@ -605,9 +631,15 @@
     document.getElementById('report-card').style.display = 'none';
 
     try {
-      const { address: dest, reserveTime } = parseLine(raw);
-      if (!dest) { showError('請輸入客人地址'); btn.disabled = false; btn.textContent = '計算時間'; return; }
-      const destObj = await geocode(dest);
+      const { address: dest, coords: destCoords, reserveTime } = parseLine(raw);
+      let destObj;
+      if (destCoords) {
+        // 直接用座標，跳過 geocode
+        destObj = { address: `${destCoords.lat},${destCoords.lon}` };
+      } else {
+        if (!dest) { showError('請輸入客人地址'); btn.disabled = false; btn.textContent = '計算時間'; return; }
+        destObj = await geocode(dest);
+      }
       const routeData = await getRoute(originCoords, destObj);
       showResult(routeData, raw, reserveTime);
     } catch(e) {
@@ -622,19 +654,25 @@
 
 
 
+  // 台中各區名稱（不含「區」字）
+  const tcDistricts = ['中區','東區','西區','南區','北區','西屯','南屯','北屯','豐原','大里','太平','大甲','清水','沙鹿','梧棲','后里','神岡','潭子','大雅','新社','石岡','東勢','和平','烏日','大肚','龍井','霧峰','外埔','大安'].map(d => d.replace('區',''));
+
   async function geocode(address) {
-    // 有路名門牌 → 加台中市前綴
-    // 純地標名稱 → 加「台中」讓 Google 找到正確位置
     const hasStreet = /[路街道巷弄]/.test(address);
     const hasCityPrefix = address.includes('市') || address.includes('縣');
-    let fullAddr;
-    if (hasCityPrefix) {
-      fullAddr = address;
-    } else if (hasStreet) {
-      fullAddr = '台中市' + address;
-    } else {
-      fullAddr = address + ' 台中'; // 地標類型
+    let fullAddr = address;
+
+    if (!hasCityPrefix) {
+      // 檢查是否有區名但缺「區」字，例如「大里仁堤二街」→「大里區仁堤二街」
+      for (const d of tcDistricts) {
+        if (address.startsWith(d) && !address.startsWith(d + '區')) {
+          fullAddr = d + '區' + address.slice(d.length);
+          break;
+        }
+      }
+      fullAddr = hasStreet ? '台中市' + fullAddr : fullAddr + ' 台中';
     }
+
     return { address: fullAddr };
   }
 
