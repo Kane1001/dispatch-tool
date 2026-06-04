@@ -648,31 +648,41 @@ async function getQuote(symbol) {
 }
 
 async function getFinancials(symbol) {
-  const url = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${symbol}?modules=financialData,defaultKeyStatistics,summaryDetail`;
-  try {
-    const data = await fetchYahoo(url);
-    const fin = data?.quoteSummary?.result?.[0];
-    if (!fin) return null;
-    const fd = fin.financialData || {};
-    const ks = fin.defaultKeyStatistics || {};
-    const sd = fin.summaryDetail || {};
-    return {
-      roe: fd.returnOnEquity?.raw,
-      roa: fd.returnOnAssets?.raw,
-      profitMargin: fd.profitMargins?.raw,
-      debtToEquity: fd.debtToEquity?.raw,
-      currentRatio: fd.currentRatio?.raw,
-      freeCashflow: fd.freeCashflow?.raw,
-      revenueGrowth: fd.revenueGrowth?.raw,
-      earningsGrowth: fd.earningsGrowth?.raw,
-      trailingPE: sd.trailingPE?.raw,
-      forwardPE: sd.forwardPE?.raw,
-      pbRatio: ks.priceToBook?.raw,
-      eps: ks.trailingEps?.raw,
-      dividendYield: sd.dividendYield?.raw,
-      beta: sd.beta?.raw,
-    };
-  } catch { return null; }
+  // Try v11 first, fallback to v10
+  const urls = [
+    `https://query2.finance.yahoo.com/v11/finance/quoteSummary/${symbol}?modules=financialData%2CdefaultKeyStatistics%2CsummaryDetail&crumb=`,
+    `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${symbol}?modules=financialData%2CdefaultKeyStatistics%2CsummaryDetail`,
+    `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${symbol}?modules=financialData%2CdefaultKeyStatistics%2CsummaryDetail`,
+  ];
+  for (const url of urls) {
+    try {
+      const data = await fetchYahoo(url);
+      const fin = data?.quoteSummary?.result?.[0];
+      if (!fin) continue;
+      const fd = fin.financialData || {};
+      const ks = fin.defaultKeyStatistics || {};
+      const sd = fin.summaryDetail || {};
+      const result = {
+        roe: fd.returnOnEquity?.raw,
+        roa: fd.returnOnAssets?.raw,
+        profitMargin: fd.profitMargins?.raw,
+        debtToEquity: fd.debtToEquity?.raw,
+        currentRatio: fd.currentRatio?.raw,
+        freeCashflow: fd.freeCashflow?.raw,
+        revenueGrowth: fd.revenueGrowth?.raw,
+        earningsGrowth: fd.earningsGrowth?.raw,
+        trailingPE: sd.trailingPE?.raw,
+        forwardPE: sd.forwardPE?.raw,
+        pbRatio: ks.priceToBook?.raw,
+        eps: ks.trailingEps?.raw,
+        dividendYield: sd.dividendYield?.raw,
+        beta: sd.beta?.raw,
+      };
+      // Return only if we got at least some financial data
+      if (Object.values(result).some(v => v != null)) return result;
+    } catch { continue; }
+  }
+  return null;
 }
 
 // ── Buffett scoring ──────────────────────────────────
